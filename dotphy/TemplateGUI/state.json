@@ -1,0 +1,110 @@
+{
+  "AmplitudeView": {
+    "amplitudes_type": "template",
+    "auto_update": true,
+    "marker_size": 5.0
+  },
+  "ClusterScatterView": {
+    "auto_update": true,
+    "color_scheme": "random",
+    "marker_size": 1.0,
+    "size": "fr",
+    "size_log_scale": true,
+    "x_axis": "amp",
+    "x_axis_log_scale": false,
+    "y_axis": "depth",
+    "y_axis_log_scale": false
+  },
+  "ClusterView": {
+    "current_sort": [
+      null,
+      null
+    ]
+  },
+  "CorrelogramView": {
+    "auto_update": true,
+    "bin_size": 0.001,
+    "refractory_period": 0.002,
+    "uniform_normalization": false,
+    "window_size": 0.05
+  },
+  "FeatureView": {
+    "auto_update": true,
+    "feature_scaling": 1.0,
+    "fixed_channels": false,
+    "marker_size": 2.0
+  },
+  "FeatureView (1)": {
+    "auto_update": true,
+    "feature_scaling": 1.0,
+    "fixed_channels": false,
+    "marker_size": 5.0
+  },
+  "FiringRateView": {
+    "auto_update": true,
+    "n_bins": 200,
+    "x_min": 0.0
+  },
+  "GUI_VERSION": 2,
+  "ISIView": {
+    "auto_update": true,
+    "n_bins": 50,
+    "x_max": 0.05,
+    "x_min": 0.0
+  },
+  "ISIView (1)": {
+    "auto_update": true,
+    "n_bins": 50,
+    "x_max": 0.05,
+    "x_min": 0
+  },
+  "ProbeView": {
+    "auto_update": true,
+    "do_show_labels": false
+  },
+  "TemplateFeatureView": {
+    "auto_update": true,
+    "marker_size": 5.0
+  },
+  "TemplateFeatureView (1)": {
+    "auto_update": true,
+    "marker_size": 5.0
+  },
+  "TraceView": {
+    "auto_scale": false,
+    "auto_update": true,
+    "color_scheme": "random",
+    "do_show_labels": true,
+    "origin": "bottom",
+    "show_all_spikes": true
+  },
+  "WaveformView": {
+    "auto_update": true,
+    "do_show_labels": true,
+    "overlap": false,
+    "waveforms_type": "waveforms"
+  },
+  "batch_size_waveforms": 10,
+  "geometry_state": {
+    "geometry": {
+      "__qbytearray__": "QWRuUXl3QUNBQUQvLy8vQkFBQUNiUUFBRmdvQUFBWXQvLy8veEFBQUFxa0FBQllIQUFBR0tnQUFBQUFBQUFBQUJ5ND0="
+    },
+    "state": {
+      "__qbytearray__": "QUFBQS93QUFBQUQ5QUFBQUFnQUFBQUFBQUFzWkFBQURJUHdCQUFBQUFmd0FBQUFBQUFBTEdRQUFBaW9BLy8vLy9BSUFBQUFEK3dBQUFDUUFRd0JzQUhVQWN3QjBBR1VBY2dCVEFHTUFZUUIwQUhRQVpRQnlBRllBYVFCbEFIY0JBQUFBTVFBQUFLY0FBQUJRQVAvLy8vc0FBQUFXQUVNQWJBQjFBSE1BZEFCbEFISUFWZ0JwQUdVQWR3RUFBQURxQUFBQnp3QUFBRkFBLy8vLyt3QUFBQndBVXdCcEFHMEFhUUJzQUdFQWNnQnBBSFFBZVFCV0FHa0FaUUIzQVFBQUFzc0FBQUNHQUFBQVVBRC8vLzhBQUFBQkFBQUxHUUFBQXlEOEFRQUFBQWY4QUFBTEt3QUFBalVBQUFIVUFQLy8vL3dDQUFBQUF2c0FBQUFZQUZjQVlRQjJBR1VBWmdCdkFISUFiUUJXQUdrQVpRQjNBUUFBQURFQUFBSjRBQUFBVUFELy8vLzdBQUFBR2dCQkFHMEFjQUJzQUdrQWRBQjFBR1FBWlFCV0FHa0FaUUIzQVFBQUFyc0FBQUNXQUFBQVVBRC8vLy84QUFBTmNnQUFBODRBQUFNbUFQLy8vL3dDQUFBQUJQc0FBQUFXQUVZQVpRQmhBSFFBZFFCeUFHVUFWZ0JwQUdVQWR3RUFBQUF4QUFBQWpnQUFBRkFBLy8vLyt3QUFBQ1lBVkFCbEFHMEFjQUJzQUdFQWRBQmxBRVlBWlFCaEFIUUFkUUJ5QUdVQVZnQnBBR1VBZHdFQUFBRFJBQUFBMWdBQUFGQUEvLy8vK3dBQUFCNEFRd0J2QUhJQWNnQmxBR3dBYndCbkFISUFZUUJ0QUZZQWFRQmxBSGNCQUFBQnVRQUFBTThBQUFCUUFQLy8vL3dBQUFLYUFBQUF0d0FBQUZBQS8vLy8vQUVBQUFBQyt3QUFBQTRBU1FCVEFFa0FWZ0JwQUdVQWR3RUFBQTF5QUFBQmlRQUFBVVFBLy8vLyt3QUFBQndBUmdCcEFISUFhUUJ1QUdjQVVnQmhBSFFBWlFCV0FHa0FaUUIzQVFBQUR3MEFBQUl6QUFBQjBBRC8vLy83QUFBQUVnQlVBSElBWVFCakFHVUFWZ0JwQUdVQWR3RUFBQkZTQUFBRThnQUFCQmdBLy8vLyt3QUFBQklBVUFCeUFHOEFZZ0JsQUZZQWFRQmxBSGNBQUFBSENBQUFBUWtBQUFBQUFBQUFBUHNBQUFBdUFGUUFaUUJ0QUhBQWJBQmhBSFFBWlFCR0FHVUFZUUIwQUhVQWNnQmxBRllBYVFCbEFIY0FJQUFvQURFQUtRQUFBQWJDQUFBQlR3QUFBQUFBQUFBQSt3QUFBQllBU1FCVEFFa0FWZ0JwQUdVQWR3QWdBQ2dBTVFBcEFBQUFCMUVBQUFEQUFBQUFBQUFBQUFEN0FBQUFIZ0JHQUdVQVlRQjBBSFVBY2dCbEFGWUFhUUJsQUhjQUlBQW9BREVBS1FBQUFBZEhBQUFBeWdBQUFBQUFBQUFBQUFBQUFBQUFBeUFBQUFBRUFBQUFCQUFBQUFnQUFBQUkvQUFBQUFFQUFBQUNBQUFBQVFBQUFBNEFWQUJ2QUc4QWJBQmlBR0VBY2dBQUFBQUEvLy8vL3dBQUFBQUFBQUFB"
+    }
+  },
+  "n_spikes_waveforms": 100,
+  "view_count": {
+    "AmplitudeView": 1,
+    "ClusterScatterView": 1,
+    "ClusterView": 1,
+    "CorrelogramView": 1,
+    "FeatureView": 1,
+    "FiringRateView": 1,
+    "ISIView": 1,
+    "SimilarityView": 1,
+    "TemplateFeatureView": 1,
+    "TraceView": 1,
+    "WaveformView": 1
+  }
+}
