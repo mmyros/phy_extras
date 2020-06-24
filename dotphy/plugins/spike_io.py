@@ -1,3 +1,4 @@
+from pdb import set_trace
 import numpy as np
 import os
 from collections import OrderedDict
@@ -527,31 +528,20 @@ class Wrappers:
         do_parallel = True  # TODO unpickle problems
         if do_parallel:
             from joblib import Parallel, delayed
-
-            # from joblib import wrap_non_picklable_objects
-            # @delayed
-            # @wrap_non_picklable_objects
-            # def calculate_pc_metrics_one_cluster(**args):
-            #     meas = Wrappers.calculate_pc_metrics_one_cluster(**args)
-            #     return meas
-
             meas = Parallel(n_jobs=-1, verbose=3)(  # -1 means use all cores
                 delayed(Wrappers.calculate_pc_metrics_one_cluster)  # Function
                 (peak_channels, cluster_id, half_spread, pc_features, pc_feature_ind,  # Arguments
                  spike_clusters, max_spikes_for_cluster, max_spikes_for_nn, n_neighbors
                  )
-                for cluster_id in cluster_ids)  # Loop
+                for cluster_id in range(total_units))  # Loop
         else:
-            from tqdm import tqdm
+            from tqdm import trange
             meas = [Wrappers.calculate_pc_metrics_one_cluster(  # Function
                 peak_channels, cluster_id, half_spread, pc_features, pc_feature_ind, spike_clusters,  # Arguments
                 max_spikes_for_cluster, max_spikes_for_nn, n_neighbors)
-                for cluster_id in tqdm(cluster_ids, desc='Calculating isolation metrics')]  # Loop
+                for cluster_id in trange(total_units, desc='Calculating isolation metrics')]  # Loop
 
-        print(len(meas))
-        print(cluster_ids.max())
-        from pdb import set_trace
-        set_trace()
+        assert len(meas) == cluster_ids.max(), 'sanity check'
         # Unpack:
         isolation_distances = []
         l_ratios = []
