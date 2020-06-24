@@ -1,3 +1,4 @@
+import warnings
 from pdb import set_trace
 import numpy as np
 import os
@@ -987,9 +988,7 @@ class Wrappers:
         num_channels = np.max(pc_feature_ind) + 1
         all_pcs = np.zeros((total_spikes, num_channels * num_pc_features))
 
-
         for idx, i in enumerate(random_spike_inds):
-
             unit_id = spike_templates[i]
             channels = pc_feature_ind[unit_id, :]
 
@@ -997,7 +996,6 @@ class Wrappers:
                 all_pcs[idx, channels + num_channels * j] = pc_features[i, j, :]
 
         cluster_labels = spike_clusters[random_spike_inds]
-
 
         SS = np.empty((total_units, total_units))
         SS[:] = np.nan
@@ -1032,8 +1030,8 @@ class Wrappers:
                     inds = np.in1d(cluster_labels, np.array([i, j]))
                     X = all_pcs[inds, :]
                     labels = cluster_labels[inds]
-
-                    if len(labels) > 2:
+                    # len(np.unique(labels))=1 Can happen if total_spikes is low:
+                    if (len(labels) > 2) and (len(np.unique(labels)) > 1):
                         scores_1d.append(silhouette_score(X, labels))
                     else:
                         scores_1d.append(np.nan)
@@ -1044,7 +1042,7 @@ class Wrappers:
         # Build lists
         if do_parallel:
             from joblib import Parallel, delayed
-            scores = Parallel(n_jobs=-1, verbose=2)(delayed(score_inner_loop)(i, cluster_ids) for i in range(cluster_ids.max()))
+            scores = Parallel(n_jobs=-1, verbose=2)(delayed(score_inner_loop)(i, cluster_ids) for i in cluster_ids)
         else:
             scores = [score_inner_loop(i, cluster_ids) for i in cluster_ids]
 
@@ -1133,9 +1131,11 @@ class Wrappers:
                 else:
                     median_depths.append(np.nan)
 
-            median_depths = np.array(median_depths)
-            max_drift = np.around(np.nanmax(median_depths) - np.nanmin(median_depths), 2)
-            cumulative_drift = np.around(np.nansum(np.abs(np.diff(median_depths))), 2)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore") #RuntimeWarning: All-NaN slice encountered
+                median_depths = np.array(median_depths)
+                max_drift = np.around(np.nanmax(median_depths) - np.nanmin(median_depths), 2)
+                cumulative_drift = np.around(np.nansum(np.abs(np.diff(median_depths))), 2)
             return max_drift, cumulative_drift
 
         max_drifts = []
