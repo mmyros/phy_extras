@@ -80,25 +80,21 @@ class ClusterMetricsPlugin(IPlugin):
          channel_map, clusterIDs, cluster_quality, pc_features, pc_feature_ind) = spike_io.IO.load_kilosort_data(
             controller.dir_path, 3e4, False, include_pcs=True)
 
-        def pc_metrics():
-            # set_trace()
-            total_units = np.max(spike_clusters) + 1
-            (isolation_distance, l_ratio, d_prime, nn_hit_rate,
-             nn_miss_rate) = spike_io.Wrappers.calculate_pc_metrics(spike_clusters,
-                                                                    total_units,
-                                                                    pc_features,
-                                                                    pc_feature_ind,
-                                                                    params['num_channels_to_compare'],
-                                                                    params['max_spikes_for_unit'],
-                                                                    params['max_spikes_for_nn'],
-                                                                    params['n_neighbors'])
-            return isolation_distance, l_ratio, d_prime, nn_hit_rate, nn_miss_rate
+        total_units = np.max(spike_clusters) + 1
+        (isolation_distance, l_ratio, d_prime, nn_hit_rate,
+         nn_miss_rate) = spike_io.Wrappers.calculate_pc_metrics(spike_clusters,
+                                                                total_units,
+                                                                pc_features,
+                                                                pc_feature_ind,
+                                                                params['num_channels_to_compare'],
+                                                                params['max_spikes_for_unit'],
+                                                                params['max_spikes_for_nn'],
+                                                                params['n_neighbors'])
 
 
-        isolation_distance, l_ratio, d_prime, nn_hit_rate, nn_miss_rate=pc_metrics()
 
         def the_isolation_distance(cluster_id):
-            return the_isolation_distance[cluster_id]
+            return isolation_distance[spike_clusters==cluster_id]
 
         # def l_ratio(cluster_id):
         #     # pcs_for_this_unit=controller._get_features(cluster_id)
@@ -107,7 +103,7 @@ class ClusterMetricsPlugin(IPlugin):
         #         pcs_for_other_units=pc_features[spike_clusters != cluster_id, :])
         #     return isolation_distance
         #
-        controller.cluster_metrics['idist'] = controller.context.memcache(isolation_distance)
+        controller.cluster_metrics['idist'] = controller.context.memcache(the_isolation_distance)
         # controller.cluster_metrics['lrat'] = controller.context.memcache(l_ratio)
 
         #
