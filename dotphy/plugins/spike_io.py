@@ -497,7 +497,8 @@ class Wrappers:
                              num_channels_to_compare,
                              max_spikes_for_cluster,
                              max_spikes_for_nn,
-                             n_neighbors):
+                             n_neighbors,
+                             do_parallel=True):
         """
 
         :param spike_clusters:
@@ -524,24 +525,28 @@ class Wrappers:
             peak_channels[cluster_id] = pc_feature_ind[cluster_id, pc_max]
 
         # Loop over clusters:
-
-        do_parallel = True  # TODO unpickle problems
         if do_parallel:
             from joblib import Parallel, delayed
+            # from joblib import wrap_non_picklable_objects
+            # @delayed
+            # @wrap_non_picklable_objects
+            # def calculate_pc_metrics_one_cluster(**args):
+            #     meas = Wrappers.calculate_pc_metrics_one_cluster(**args)
+            #     return meas
+
             meas = Parallel(n_jobs=-1, verbose=3)(  # -1 means use all cores
                 delayed(Wrappers.calculate_pc_metrics_one_cluster)  # Function
                 (peak_channels, cluster_id, half_spread, pc_features, pc_feature_ind,  # Arguments
                  spike_clusters, max_spikes_for_cluster, max_spikes_for_nn, n_neighbors
                  )
-                for cluster_id in range(total_units))  # Loop
+                for cluster_id in cluster_ids)  # Loop
         else:
-            from tqdm import trange
+            from tqdm import tqdm
             meas = [Wrappers.calculate_pc_metrics_one_cluster(  # Function
                 peak_channels, cluster_id, half_spread, pc_features, pc_feature_ind, spike_clusters,  # Arguments
                 max_spikes_for_cluster, max_spikes_for_nn, n_neighbors)
-                for cluster_id in trange(total_units, desc='Calculating isolation metrics')]  # Loop
+                for cluster_id in tqdm(cluster_ids, desc='Calculating isolation metrics')]  # Loop
 
-        assert len(meas) == cluster_ids.max(), 'sanity check'
         # Unpack:
         isolation_distances = []
         l_ratios = []
@@ -595,7 +600,7 @@ class Wrappers:
 
             return index_mask
 
-        def make_channel_mask(unit_id, pc_feature_ind, channels_to_use):
+        def make_channel_mask(unit_id, pc_feature_ind, channels_to_use, these_inds=None):
             """ Create a mask for the channel dimension of the pc_features array
             Inputs:
             -------
@@ -611,9 +616,11 @@ class Wrappers:
                 Channel indices to extract from pc_features array
 
             """
-
-            these_inds = pc_feature_ind[unit_id, :]
+            if these_inds is None:
+                these_inds = pc_feature_ind[unit_id, :]
             channel_mask = [np.argwhere(these_inds == i)[0][0] for i in channels_to_use]
+
+            # channel_mask = [np.argwhere(these_inds == i)[0][0] for i in available_to_use]
 
             return np.array(channel_mask)
 
@@ -662,6 +669,12 @@ class Wrappers:
 
         channels_to_use = np.arange(peak_channel - half_spread_down, peak_channel + half_spread_up + 1)
 
+        # Take only the channels that have calculated features out of the ones we are interested in:
+        intersect = set(pc_feature_ind[units_for_channel[0], :])
+        for cluster_id2 in units_for_channel:
+            intersect = intersect & set(pc_feature_ind[cluster_id2, :])
+        channels_to_use = np.array(list(intersect))
+
         spike_counts = np.zeros(units_for_channel.shape)
 
         for idx2, cluster_id2 in enumerate(units_for_channel):
@@ -694,7 +707,6 @@ class Wrappers:
                 all_labels = np.concatenate((all_labels, labels), 0)
 
         all_pcs = np.reshape(all_pcs, (all_pcs.shape[0], pc_features.shape[1] * channels_to_use.size))
-
         if (all_pcs.shape[0] > 10) and (cluster_id in all_labels):
 
             isolation_distance, l_ratio = QualityMetrics.mahalanobis_metrics(all_pcs, all_labels, cluster_id)
@@ -718,7 +730,8 @@ class Wrappers:
                                    total_units,
                                    pc_features,
                                    pc_feature_ind,
-                                   total_spikes):
+                                   total_spikes,
+                                   do_parallel=True):
         """
 
         :param spike_clusters:
@@ -727,11 +740,12 @@ class Wrappers:
         :param total_spikes:
         :return:
         """
+        import warnings
         random_spike_inds = np.random.permutation(spike_clusters.size)
         random_spike_inds = random_spike_inds[:total_spikes]
         num_pc_features = pc_features.shape[1]
-
-        all_pcs = np.zeros((total_spikes, np.max(pc_feature_ind) * num_pc_features + 1))
+        num_channels = np.max(pc_feature_ind) + 1
+        all_pcs = np.zeros((total_spikes, np.max(pc_feature_ind) * num_pc_features))
 
         for idx, i in enumerate(random_spike_inds):
 
@@ -739,7 +753,7 @@ class Wrappers:
             channels = pc_feature_ind[unit_id, :]
 
             for j in range(0, num_pc_features):
-                all_pcs[idx, channels + np.max(pc_feature_ind) * j] = pc_features[i, j, :]
+                all_pcs[idx, channels + num_channels * j] = pc_features[i, j, :]
 
         cluster_labels = spike_clusters[random_spike_inds]
 
@@ -747,7 +761,8 @@ class Wrappers:
 
         SS = np.empty((total_units, total_units))
         SS[:] = np.nan
-
+        """
+        # Original Allen implementation:
         for idx1, i in enumerate(cluster_ids):
 
             for idx2, j in enumerate(cluster_ids):
@@ -759,8 +774,38 @@ class Wrappers:
 
                     if len(labels) > 2:
                         SS[i, j] = silhouette_score(X, labels)
+        """
 
-        return np.nanmin(SS, 0)
+        def score(i, cluster_ids):
+            scores = []
+            for j in enumerate(cluster_ids):
+                if j > i:
+                    inds = np.in1d(cluster_labels, np.array([i, j]))
+                    X = all_pcs[inds, :]
+                    labels = cluster_labels[inds]
+
+                    if len(labels) > 2:
+                        scores.append(silhouette_score(X, labels))
+                    else:
+                        scores.append(np.nan)
+                else:
+                    scores.append(np.nan)
+            return scores
+
+        if do_parallel:
+            from joblib import Parallel, delayed
+            scores = Parallel(n_jobs=-1, verbose=2)(delayed(score)(i, cluster_ids) for i in cluster_ids)
+        else:
+            scores = [score(i, cluster_ids) for i in cluster_ids]
+
+        for i, the_score in zip(cluster_ids, scores):
+            for jj, j in enumerate(cluster_ids):
+                SS[i, j] = the_score[jj]
+        with warnings.catch_warnings():
+          warnings.simplefilter("ignore")
+          a = np.nanmin(SS, 0)
+          b = np.nanmin(SS, 1)
+        return np.array([np.nanmin([a,b]) for a, b in zip(a,b)])
 
     @staticmethod
     def calculate_drift_metrics(spike_times,
@@ -768,7 +813,8 @@ class Wrappers:
                                 pc_features,
                                 pc_feature_ind,
                                 interval_length,
-                                min_spikes_per_interval):
+                                min_spikes_per_interval,
+                                do_parallel=True):
         """
 
         :param spike_times:
@@ -810,8 +856,8 @@ class Wrappers:
 
             return spike_depths * 10
 
-        max_drift = []
-        cumulative_drift = []
+        max_drifts = []
+        cumulative_drifts = []
 
         depths = get_spike_depths(spike_clusters, pc_features, pc_feature_ind)
 
@@ -820,8 +866,7 @@ class Wrappers:
 
         cluster_ids = np.unique(spike_clusters)
 
-        for idx, cluster_id in enumerate(cluster_ids):
-
+        def calc_one_cluster(cluster_id):
             in_cluster = spike_clusters == cluster_id
             times_for_cluster = spike_times[in_cluster]
             depths_for_cluster = depths[in_cluster]
@@ -838,10 +883,20 @@ class Wrappers:
                     median_depths.append(np.nan)
 
             median_depths = np.array(median_depths)
+            max_drift = np.around(np.nanmax(median_depths) - np.nanmin(median_depths), 2)
+            cumulative_drift = np.around(np.nansum(np.abs(np.diff(median_depths))), 2)
+            return max_drift, cumulative_drift
 
-            max_drift.append(np.around(np.nanmax(median_depths) - np.nanmin(median_depths), 2))
-            cumulative_drift.append(np.around(np.nansum(np.abs(np.diff(median_depths))), 2))
+        if do_parallel:
+            from joblib import Parallel, delayed
+            meas = Parallel(n_jobs=-1, verbose=2)(delayed(calc_one_cluster)(cluster_id)
+                                                  for cluster_id in cluster_ids)
+        else:
+            meas = [calc_one_cluster(cluster_id) for cluster_id in cluster_ids]
 
+        for max_drift, cumulative_drift in meas:
+            max_drifts.append(max_drift)
+            cumulative_drifts.append(max_drift)
         return np.array(max_drift), np.array(cumulative_drift)
 
 
@@ -1097,7 +1152,7 @@ class QualityMetrics:
 
 
 def calculate_metrics(spike_times, spike_clusters, amplitudes, pc_features, pc_feature_ind, output_folder=None,
-                      params=None):
+                      params=None, do_parallel=True):
     """ Calculate metrics for all units on one probe
     from mmy.input_output import spike_io
     ksort_folder = '~/res_ss_full/res_ss/tcloop_train_m022_1553627381_'
@@ -1181,7 +1236,8 @@ def calculate_metrics(spike_times, spike_clusters, amplitudes, pc_features, pc_f
                                                                          params['num_channels_to_compare'],
                                                                          params['max_spikes_for_unit'],
                                                                          params['max_spikes_for_nn'],
-                                                                         params['n_neighbors'])
+                                                                         params['n_neighbors'],
+                                                                         do_parallel=do_parallel)
 
     print("Calculating silhouette score")
     the_silhouette_score = Wrappers.calculate_silhouette_score(spike_clusters[in_epoch],
@@ -1193,13 +1249,13 @@ def calculate_metrics(spike_times, spike_clusters, amplitudes, pc_features, pc_f
     print("Calculating drift metrics")
     max_drift, cumulative_drift = Wrappers.calculate_drift_metrics(spike_times[in_epoch],
                                                                    spike_clusters[in_epoch],
-                                                                   total_units,
                                                                    pc_features[in_epoch, :, :],
                                                                    pc_feature_ind,
                                                                    params['drift_metrics_interval_s'],
                                                                    params['drift_metrics_min_spikes_per_interval'])
-
-    cluster_ids = np.arange(total_units)
+    # Unlike in Allen, I don't keep clusters that don't exist. My output clusters shape is the same as kilosort's
+    # unique(clusters) rather than max(clusters)
+    cluster_ids = np.unique(spike_clusters)  # np.arange(total_units)
 
     metrics = pd.DataFrame(data=OrderedDict((('cluster_id', cluster_ids),
                                              ('firing_rate', firing_rate),
@@ -1229,4 +1285,4 @@ if __name__ == '__main__':
         ksort_folder, 3e4, False, include_pcs=True)
     metrics = calculate_metrics(the_spike_times, the_spike_clusters,
                                 the_amplitudes, the_pc_features, the_pc_feature_ind,
-                                ksort_folder)
+                                ksort_folder, do_parallel=True)
