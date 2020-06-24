@@ -82,6 +82,7 @@ class ClusterMetricsPlugin(IPlugin):
         total_units = np.max(spike_clusters) + 1
         (isolation_distance, l_ratio, d_prime, nn_hit_rate,
          nn_miss_rate) = spike_io.Wrappers.calculate_pc_metrics(spike_clusters,
+                                                                spike_templates,
                                                                 total_units,
                                                                 pc_features,
                                                                 pc_feature_ind,
