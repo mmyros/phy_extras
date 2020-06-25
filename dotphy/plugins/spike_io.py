@@ -1,3 +1,7 @@
+"""
+Adapted from Allen from:
+https://github.com/AllenInstitute/ecephys_spike_sorting.git
+"""
 import click
 import warnings
 from pdb import set_trace
@@ -77,7 +81,9 @@ class KsortPostprocessing:
 
     @staticmethod
     def remove_double_counted_spikes(spike_times, spike_clusters, spike_templates, amplitudes, channel_map, templates,
-                                     pc_features, pc_feature_ind, sample_rate, params, epochs=None):
+                                     pc_features, sample_rate, within_unit_overlap_window=0.000166,
+                                     between_unit_overlap_window=0.000166, between_unit_channel_distance=5
+                                     ):
 
         """ Remove putative double-counted spikes from Kilosort outputs
         Inputs:
@@ -100,12 +106,12 @@ class KsortPostprocessing:
             Channel indices of PCs for each unit
         sample_rate : Float
             Sample rate of spike times
-        params : dict of parameters
-            'within_unit_overlap_window' : time window for removing overlapping spikes
-            'between_unit_overlap_window' : time window for removing overlapping spikes
-            'between_unit_channel_distance' : number of channels over which to search for overlapping spikes
-        epochs : list of Epoch objects
-            contains information on Epoch start and stop times
+        'within_unit_overlap_window' :
+            time window for removing overlapping spikes
+        'between_unit_overlap_window' :
+            time window for removing overlapping spikes
+        'between_unit_channel_distance' :
+             number of channels over which to search for overlapping spikes
 
         Outputs:
         --------
@@ -218,24 +224,21 @@ class KsortPostprocessing:
 
         peak_channels = np.squeeze(channel_map[np.argmax(np.max(templates, 1) - np.min(templates, 1), 1)])
 
-        order = np.argsort(peak_channels)
 
+        order = np.argsort(peak_channels)
+        # Skip order if they are not present in unit_list:
+        order=order[np.in1d(order,unit_list)]
         overlap_matrix = np.zeros((peak_channels.size, peak_channels.size))
 
-        within_unit_overlap_samples = int(params['within_unit_overlap_window'] * sample_rate)
-        between_unit_overlap_samples = int(params['between_unit_overlap_window'] * sample_rate)
-
+        within_unit_overlap_samples = int(within_unit_overlap_window * sample_rate)
+        between_unit_overlap_samples = int(between_unit_overlap_window * sample_rate)
         print('Removing within-unit overlapping spikes...')
-
         spikes_to_remove = np.zeros((0,))
 
         for idx1, unit_id1 in enumerate(unit_list[order]):
             for_unit1 = np.where(spike_clusters == unit_id1)[0]
-
             to_remove = find_within_unit_overlap(spike_times[for_unit1], within_unit_overlap_samples)
-
             overlap_matrix[idx1, idx1] = len(to_remove)
-
             spikes_to_remove = np.concatenate((spikes_to_remove, for_unit1[to_remove]))
 
         spike_times, spike_clusters, spike_templates, amplitudes, pc_features = remove_spikes(spike_times,
@@ -246,7 +249,6 @@ class KsortPostprocessing:
                                                                                               spikes_to_remove)
 
         print('Removing between-unit overlapping spikes...')
-
         spikes_to_remove = np.zeros((0,))
 
         for idx1, unit_id1 in enumerate(unit_list[order]):
@@ -256,7 +258,7 @@ class KsortPostprocessing:
             for idx2, unit_id2 in enumerate(unit_list[order]):
 
                 if idx2 > idx1 and (np.abs(peak_channels[unit_id1] - peak_channels[unit_id2]) <
-                                    params['between_unit_channel_distance']):
+                                    between_unit_channel_distance):
                     for_unit2 = np.where(spike_clusters == unit_id2)[0]
 
                     to_remove1, to_remove2 = find_between_unit_overlap(spike_times[for_unit1], spike_times[for_unit2],
@@ -524,7 +526,6 @@ class Wrappers:
         cluster_ids = np.unique(spike_clusters)
 
         peak_channels = np.zeros((cluster_ids.max() + 1,), dtype='uint16')
-
         for cluster_id in cluster_ids:
             for_unit = np.squeeze(spike_clusters == cluster_id)
             pc_max = np.argmax(np.mean(pc_features[for_unit, 0, :], 0))
@@ -684,11 +685,13 @@ class Wrappers:
             np.where(pc_feature_ind.flatten() == peak_channel)[0],
             pc_feature_ind.shape)
 
+        # Skip peak_channels if they are not present in unit_list:
+        units_for_channel = units_for_channel[np.in1d(units_for_channel,peak_channels)]
+
         units_in_range = (peak_channels[units_for_channel] >= peak_channel - half_spread_down) * \
                          (peak_channels[units_for_channel] <= peak_channel + half_spread_up)
 
         units_for_channel = units_for_channel[units_in_range]
-        channel_index = channel_index[units_in_range]
 
         channels_to_use = np.arange(peak_channel - half_spread_down, peak_channel + half_spread_up + 1)
 
@@ -732,7 +735,9 @@ class Wrappers:
         all_pcs = np.reshape(all_pcs, (all_pcs.shape[0], pc_features.shape[1] * channels_to_use.size))
         if ((all_pcs.shape[0] > 10)
                 and (cluster_id in all_labels)
-                and (len(channels_to_use) > 0)):
+                and (len(channels_to_use) > 0)
+            and not (all_labels== cluster_id).all()
+        ):
 
             isolation_distance, l_ratio = QualityMetrics.mahalanobis_metrics(all_pcs, all_labels, cluster_id)
 
@@ -1200,7 +1205,7 @@ class QualityMetrics:
 
 class NewWrappers:
     @staticmethod
-    def calculate_pc_metrics_new(spike_clusters,
+    def calculate_pc_metrics(spike_clusters,
                                  spike_templates,
                                  total_units,
                                  pc_features,
@@ -1292,84 +1297,84 @@ class NewWrappers:
                                          spike_clusters, spike_templates,
                                          max_spikes_for_cluster, max_spikes_for_nn, n_neighbors):
 
-        def make_index_mask(spike_clusters, unit_id, min_num, max_num):
-            """ Create a mask for the spike index dimensions of the pc_features array
-            Inputs:
-            -------
-            spike_clusters : numpy.ndarray (num_spikes x 0)
-                Contains cluster IDs for all spikes in pc_features array
-            unit_id : Int
-                ID for this unit
-            min_num : Int
-                Minimum number of spikes to return; if there are not enough spikes for this unit, return all False
-            max_num : Int
-                Maximum number of spikes to return; if too many spikes for this unit, return a random subsample
-            Output:
-            -------
-            index_mask : numpy.ndarray (boolean)
-                Mask of spike indices for pc_features array
-            """
+        # def make_index_mask(spike_clusters, unit_id, min_num, max_num):
+        #     """ Create a mask for the spike index dimensions of the pc_features array
+        #     Inputs:
+        #     -------
+        #     spike_clusters : numpy.ndarray (num_spikes x 0)
+        #         Contains cluster IDs for all spikes in pc_features array
+        #     unit_id : Int
+        #         ID for this unit
+        #     min_num : Int
+        #         Minimum number of spikes to return; if there are not enough spikes for this unit, return all False
+        #     max_num : Int
+        #         Maximum number of spikes to return; if too many spikes for this unit, return a random subsample
+        #     Output:
+        #     -------
+        #     index_mask : numpy.ndarray (boolean)
+        #         Mask of spike indices for pc_features array
+        #     """
+        #
+        #     index_mask = spike_clusters == unit_id
+        #
+        #     inds = np.where(index_mask)[0]
+        #
+        #     if len(inds) < min_num:
+        #         index_mask = np.zeros((spike_clusters.size,), dtype='bool')
+        #     else:
+        #         index_mask = np.zeros((spike_clusters.size,), dtype='bool')
+        #         order = np.random.permutation(inds.size)
+        #         index_mask[inds[order[:max_num]]] = True
+        #
+        #     return index_mask
+        #
+        # def make_channel_mask(unit_id, pc_feature_ind, channels_to_use, these_inds=None):
+        #     """ Create a mask for the channel dimension of the pc_features array
+        #     Inputs:
+        #     -------
+        #     unit_id : Int
+        #         ID for this unit
+        #     pc_feature_ind : np.ndarray
+        #         Channels used for PC calculation for each unit
+        #     channels_to_use : np.ndarray
+        #         Channels to use for calculating metrics
+        #     Output:
+        #     -------
+        #     channel_mask : numpy.ndarray
+        #         Channel indices to extract from pc_features array
+        #
+        #     """
+        #     if these_inds is None:
+        #         these_inds = pc_feature_ind[unit_id, :]
+        #     channel_mask = [np.argwhere(these_inds == i)[0][0] for i in channels_to_use]
+        #
+        #     # channel_mask = [np.argwhere(these_inds == i)[0][0] for i in available_to_use]
+        #
+        #     return np.array(channel_mask)
+        #
+        # def get_unit_pcs_old(these_pc_features, index_mask, channel_mask):
+        #     """ Use the index_mask and channel_mask to return PC features for one unit
+        #     Inputs:
+        #     -------
+        #     these_pc_features : numpy.ndarray (float)
+        #         Array of pre-computed PC features (num_spikes x num_PCs x num_channels)
+        #     index_mask : numpy.ndarray (boolean)
+        #         Mask for spike index dimension of pc_features array
+        #     channel_mask : numpy.ndarray (boolean)
+        #         Mask for channel index dimension of pc_features array
+        #     Output:
+        #     -------
+        #     unit_PCs : numpy.ndarray (float)
+        #         PCs for one unit (num_spikes x num_PCs x num_channels)
+        #     """
+        #
+        #     unit_PCs = these_pc_features[index_mask, :, :]
+        #
+        #     unit_PCs = unit_PCs[:, :, channel_mask]
+        #
+        #     return unit_PCs
 
-            index_mask = spike_clusters == unit_id
-
-            inds = np.where(index_mask)[0]
-
-            if len(inds) < min_num:
-                index_mask = np.zeros((spike_clusters.size,), dtype='bool')
-            else:
-                index_mask = np.zeros((spike_clusters.size,), dtype='bool')
-                order = np.random.permutation(inds.size)
-                index_mask[inds[order[:max_num]]] = True
-
-            return index_mask
-
-        def make_channel_mask(unit_id, pc_feature_ind, channels_to_use, these_inds=None):
-            """ Create a mask for the channel dimension of the pc_features array
-            Inputs:
-            -------
-            unit_id : Int
-                ID for this unit
-            pc_feature_ind : np.ndarray
-                Channels used for PC calculation for each unit
-            channels_to_use : np.ndarray
-                Channels to use for calculating metrics
-            Output:
-            -------
-            channel_mask : numpy.ndarray
-                Channel indices to extract from pc_features array
-
-            """
-            if these_inds is None:
-                these_inds = pc_feature_ind[unit_id, :]
-            channel_mask = [np.argwhere(these_inds == i)[0][0] for i in channels_to_use]
-
-            # channel_mask = [np.argwhere(these_inds == i)[0][0] for i in available_to_use]
-
-            return np.array(channel_mask)
-
-        def get_unit_pcs(these_pc_features, index_mask, channel_mask):
-            """ Use the index_mask and channel_mask to return PC features for one unit
-            Inputs:
-            -------
-            these_pc_features : numpy.ndarray (float)
-                Array of pre-computed PC features (num_spikes x num_PCs x num_channels)
-            index_mask : numpy.ndarray (boolean)
-                Mask for spike index dimension of pc_features array
-            channel_mask : numpy.ndarray (boolean)
-                Mask for channel index dimension of pc_features array
-            Output:
-            -------
-            unit_PCs : numpy.ndarray (float)
-                PCs for one unit (num_spikes x num_PCs x num_channels)
-            """
-
-            unit_PCs = these_pc_features[index_mask, :, :]
-
-            unit_PCs = unit_PCs[:, :, channel_mask]
-
-            return unit_PCs
-
-        def get_unit_pcs_new_implementation(unit_id,
+        def get_unit_pcs(unit_id,
                                             spike_clusters,
                                             spike_templates,
                                             pc_feature_ind,
@@ -1484,40 +1489,40 @@ class NewWrappers:
         all_pcs = np.zeros((0, pc_features.shape[1], channels_to_use.size))
         all_labels = np.zeros((0,))
 
-        for idx2, cluster_id2 in enumerate(units_in_range):
-
-            try:
-                channel_mask = make_channel_mask(cluster_id2, pc_feature_ind, channels_to_use)
-            except IndexError:
-                # Occurs when pc_feature_ind does not contain all channels of interest
-                # In that case, we will exclude this unit for the calculation
-                pass
-            else:
-                subsample = int(relative_counts[idx2])
-                index_mask = make_index_mask(spike_clusters, cluster_id2, min_num=0, max_num=subsample)
-                pcs = get_unit_pcs(pc_features, index_mask, channel_mask)
-                # pcs = get_unit_pcs(cluster_id2, spike_clusters, spike_templates,
-                #                                           pc_feature_ind, pc_features, channels_to_use,
-                #                                           subsample)
-                labels = np.ones((pcs.shape[0],)) * cluster_id2
-
-                all_pcs = np.concatenate((all_pcs, pcs), 0)
-                all_labels = np.concatenate((all_labels, labels), 0)
-
-        # New Allen implementation still misses neurons that are not on many channels, eg stereotrodes
         # for idx2, cluster_id2 in enumerate(units_in_range):
         #
-        #     subsample = int(relative_counts[idx2])
-        #
-        #     pcs = get_unit_pcs(cluster_id2, spike_clusters, spike_templates,
-        #                        pc_feature_ind, pc_features, channels_to_use,
-        #                        subsample)
-        #
-        #     if pcs is not None and len(pcs.shape) == 3:
+        #     try:
+        #         channel_mask = make_channel_mask(cluster_id2, pc_feature_ind, channels_to_use)
+        #     except IndexError:
+        #         # Occurs when pc_feature_ind does not contain all channels of interest
+        #         # In that case, we will exclude this unit for the calculation
+        #         pass
+        #     else:
+        #         subsample = int(relative_counts[idx2])
+        #         index_mask = make_index_mask(spike_clusters, cluster_id2, min_num=0, max_num=subsample)
+        #         pcs = get_unit_pcs(pc_features, index_mask, channel_mask)
+        #         # pcs = get_unit_pcs(cluster_id2, spike_clusters, spike_templates,
+        #         #                                           pc_feature_ind, pc_features, channels_to_use,
+        #         #                                           subsample)
         #         labels = np.ones((pcs.shape[0],)) * cluster_id2
         #
         #         all_pcs = np.concatenate((all_pcs, pcs), 0)
         #         all_labels = np.concatenate((all_labels, labels), 0)
+
+        # New Allen implementation still misses neurons that are not on many channels, eg stereotrodes
+        for idx2, cluster_id2 in enumerate(units_in_range):
+
+            subsample = int(relative_counts[idx2])
+
+            pcs = get_unit_pcs(cluster_id2, spike_clusters, spike_templates,
+                               pc_feature_ind, pc_features, channels_to_use,
+                               subsample)
+
+            if pcs is not None and len(pcs.shape) == 3:
+                labels = np.ones((pcs.shape[0],)) * cluster_id2
+
+                all_pcs = np.concatenate((all_pcs, pcs), 0)
+                all_labels = np.concatenate((all_labels, labels), 0)
 
         all_pcs = np.reshape(all_pcs, (all_pcs.shape[0], pc_features.shape[1] * channels_to_use.size))
         if ((all_pcs.shape[0] > 10)
@@ -1543,7 +1548,6 @@ class NewWrappers:
 def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, pc_features, pc_feature_ind,
                       output_folder=None,
                       params=None, do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True,
-
                       isi_threshold=0.0015,
                       min_isi=0.000166,
                       num_channels_to_compare=13,
@@ -1598,7 +1602,6 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
     print("Calculating isi violations")
     print(spike_clusters)
     print(total_units)
-    print(params)
     isi_viol_rate, isi_viol_n = Wrappers.calculate_isi_violations(spike_times, spike_clusters, isi_threshold, min_isi)
 
     print("Calculating presence ratio")
@@ -1617,9 +1620,22 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                              ('amplitude_cutoff', amplitude_cutoff),)))
     if do_pc_features:
         print("Calculating PC-based metrics")
-
-        (isolation_distance, l_ratio,
-        d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
+        try:
+            (isolation_distance, l_ratio,
+            d_prime, nn_hit_rate, nn_miss_rate) = NewWrappers.calculate_pc_metrics(spike_clusters,
+                                                                             spike_templates,
+                                                                             total_units,
+                                                                             pc_features,
+                                                                             pc_feature_ind,
+                                                                             num_channels_to_compare,
+                                                                             max_spikes_for_unit,
+                                                                             max_spikes_for_nn,
+                                                                             n_neighbors,
+                                                                             do_parallel=do_parallel)
+        except Exception:
+            # Fallback
+            (isolation_distance, l_ratio,
+             d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
                                                                              spike_templates,
                                                                              total_units,
                                                                              pc_features,
@@ -1658,16 +1674,16 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                                                        spike_templates,
                                                                        pc_features,
                                                                        pc_feature_ind,
-                                                                       params['drift_metrics_interval_s'],
-                                                                       params['drift_metrics_min_spikes_per_interval'],
+                                                                       drift_metrics_interval_s,
+                                                                       drift_metrics_min_spikes_per_interval,
                                                                        do_parallel=do_parallel)
 
         metrics3 = pd.DataFrame(data=OrderedDict((('max_drift', max_drift),
                                                   ('cumulative_drift', cumulative_drift),
                                                   )))
         metrics = pd.concat([metrics, metrics3], axis=1)
-    # TODO write to output file if requested
-    if not output_folder is None:
+    # write to output file if requested
+    if output_folder is not None:
         metrics.to_csv(os.path.join(output_folder, 'quality_metrics.csv'), index=False)
 
     return metrics
@@ -1679,7 +1695,7 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
 @click.option('--do_silhouette', default=1, help='do_silhouette or not, 0 or 1')
 @click.option('--do_drift', default=1, help='do_drift or not, 0 or 1')
 @click.option('--do_pc_features', default=1, help='do_pc_features or not, 0 or 1')
-def main(kilosort_folder=None, do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True):
+def main(kilosort_folder=None, do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True, fs=3e4):
     """ Calculate metrics for all units on one probe"""
     # kilosort_folder = '~/res_ss_full/res_ss/tcloop_train_m022_1553627381_'
     if kilosort_folder is None:
@@ -1690,8 +1706,22 @@ def main(kilosort_folder=None, do_parallel=True, do_pc_features=True, do_silhoue
         do_include_pcs = False
 
     (the_spike_times, the_spike_clusters, the_spike_templates, the_amplitudes, the_templates,
-     the_channel_map, the_clusterIDs, the_cluster_quality, the_pc_features, the_pc_feature_ind) = IO.load_kilosort_data(
-        kilosort_folder, 3e4, False, include_pcs=do_include_pcs)
+     the_channel_map, the_clusterIDs, the_cluster_quality,
+     the_pc_features, the_pc_feature_ind) = IO.load_kilosort_data(kilosort_folder,
+                                                                  fs,
+                                                                  False,
+                                                                  include_pcs=do_include_pcs)
+    (the_spike_times, the_spike_clusters, the_spike_templates,
+     the_amplitudes, the_pc_features,
+     the_overlap_matrix) = KsortPostprocessing.remove_double_counted_spikes(the_spike_times,
+                                                                            the_spike_clusters,
+                                                                            the_spike_templates,
+                                                                            the_amplitudes,
+                                                                            the_channel_map,
+                                                                            the_templates,
+                                                                            the_pc_features,
+                                                                            sample_rate=fs)
+
     all_metrics = calculate_metrics(the_spike_times, the_spike_clusters, the_spike_templates,
                                     the_amplitudes, the_pc_features, the_pc_feature_ind,
                                     output_folder=kilosort_folder,

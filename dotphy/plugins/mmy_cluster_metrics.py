@@ -33,19 +33,21 @@ class ClusterMetricsPlugin(IPlugin):
         # on disk).
         controller.cluster_metrics['meanisi'] = controller.context.memcache(meanisi)
         controller.cluster_metrics['snr'] = controller.context.memcache(snr)
+        isi_threshold = 0.0015
+        min_isi = 0.000166
 
-        params = {
-            "isi_threshold": 0.0015,
-            "min_isi": 0.000166,
-            "num_channels_to_compare": 13,
-            "max_spikes_for_unit": 500,
-            "max_spikes_for_nn": 10000,
-            "n_neighbors": 4,
-            'n_silhouette': 10000,
-            # "quality_metrics_output_file": os.path.join(os.path.expanduser(output_folder), "metrics.csv"),
-            "drift_metrics_interval_s": 51,
-            "drift_metrics_min_spikes_per_interval": 10
-        }
+        # params = {
+        #     "isi_threshold": 0.0015,
+        #     "min_isi": 0.000166,
+        #     "num_channels_to_compare": 13,
+        #     "max_spikes_for_unit": 500,
+        #     "max_spikes_for_nn": 10000,
+        #     "n_neighbors": 4,
+        #     'n_silhouette': 10000,
+        #     # "quality_metrics_output_file": os.path.join(os.path.expanduser(output_folder), "metrics.csv"),
+        #     "drift_metrics_interval_s": 51,
+        #     "drift_metrics_min_spikes_per_interval": 10
+        # }
 
         def get_data(cluster_id):
             spike_times = controller.get_spike_times(cluster_id).data
@@ -66,8 +68,8 @@ class ClusterMetricsPlugin(IPlugin):
             spike_train, spike_clusters = get_data(cluster_id)
             # TODO minmax should really be on all spiketimes
             return spike_io.QualityMetrics.isi_violations(spike_train, np.min(spike_train), np.max(spike_train),
-                                                          params['isi_threshold'],
-                                                          params['min_isi'])[0]
+                                                          isi_threshold,
+                                                          min_isi)[0]
 
         controller.cluster_metrics['isiviol'] = controller.context.memcache(isi_viol)
         controller.cluster_metrics['pres'] = controller.context.memcache(presence_ratio)
@@ -79,15 +81,14 @@ class ClusterMetricsPlugin(IPlugin):
         #  channel_map, clusterIDs, cluster_quality, pc_features, pc_feature_ind) = spike_io.IO.load_kilosort_data(
         #     controller.dir_path, 3e4, False, include_pcs=True)
         import pandas as pd
-        # Uncomment this if you don't want to recompute every time phy loads
-        os.system('python ~/.phy/plugins/spike_io.py --do_drift=0')
+        # Uncomment this if you want to recompute every time phy loads
+        # os.system('python ~/.phy/plugins/spike_io.py --do_drift=0')
         try:
             df = pd.read_csv(os.path.join(controller.dir_path, 'quality_metrics.csv'))
         except FileNotFoundError:
             # Force recalculation if spike measures do not exist
-
             os.system('python ~/.phy/plugins/spike_io.py --do_drift=0')
-
+            df = pd.read_csv(os.path.join(controller.dir_path, 'quality_metrics.csv'))
         # total_units = np.max(spike_clusters) + 1
         # (isolation_distance, l_ratio, d_prime, nn_hit_rate,
         #  nn_miss_rate) = spike_io.Wrappers.calculate_pc_metrics(spike_clusters,
@@ -109,13 +110,16 @@ class ClusterMetricsPlugin(IPlugin):
 
         # instead of above, run spike_io.main (thorough os.system if you must), save, and load
         # unpickle problems due to QT in phy. so cant use joblib for parallel
-
+        cluster_ids = df['cluster_id'].values
+        df.drop('cluster_id', inplace=True, axis=1)
+        # make shorthands
+        [df.rename({measure: measure[:5]}, axis=1, inplace=True) for measure in df.columns]
         # Insert each measure into phy
         for measure in df.columns:
-            if measure=='cluster_id':
-                continue
-            controller.cluster_metrics[measure[:5]] = controller.context.memcache(
-                lambda cluster_id: np.round(df[measure][np.unique(df['cluster_id']) == cluster_id].values[0], 2))
+            insert = lambda cluster_id: np.round(df[measure][cluster_ids == cluster_id].values[0], 2) \
+                if cluster_id in cluster_ids else np.nan
+            controller.cluster_metrics[measure] = controller.context.memcache(insert)
+
         #
         # controller.cluster_metrics['idist'] = controller.context.memcache(
         #     lambda cluster_id: np.round(df['isolation_distance'][np.unique(df['cluster_id']) == cluster_id].values[0],
