@@ -1547,14 +1547,14 @@ class NewWrappers:
 
 def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, pc_features, pc_feature_ind,
                       output_folder=None,
-                      params=None, do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True,
+                      do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True,
                       isi_threshold=0.0015,
                       min_isi=0.000166,
-                      num_channels_to_compare=13,
-                      max_spikes_for_unit=500,
-                      max_spikes_for_nn=10000,
+                      num_channels_to_compare=16,
+                      max_spikes_for_unit=1500,
+                      max_spikes_for_nn=50000,
                       n_neighbors=4,
-                      n_silhouette=1000,
+                      n_silhouette=50000,
                       drift_metrics_interval_s=51,
                       drift_metrics_min_spikes_per_interval=10
                       ):
