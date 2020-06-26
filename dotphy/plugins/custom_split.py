@@ -157,7 +157,7 @@ class ExampleCustomSplitPlugin(IPlugin):
             def gac_split():
                 """Split using the gac algorithm on the template amplitudes
                 of the first cluster.
-                Hit g key to trigger
+                Hit d key to trigger
                 """
 
                 import pyximport, sys, os

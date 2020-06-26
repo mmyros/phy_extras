@@ -1620,8 +1620,8 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                              ('amplitude_cutoff', amplitude_cutoff),)))
     if do_pc_features:
         print("Calculating PC-based metrics")
-        # try:
-        (isolation_distance, l_ratio,
+        try:
+            (isolation_distance, l_ratio,
             d_prime, nn_hit_rate, nn_miss_rate) = NewWrappers.calculate_pc_metrics(spike_clusters,
                                                                              spike_templates,
                                                                              total_units,
@@ -1632,19 +1632,20 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                                                              max_spikes_for_nn,
                                                                              n_neighbors,
                                                                              do_parallel=do_parallel)
-        # except Exception:
-        #     # Fallback
-        #     (isolation_distance, l_ratio,
-        #      d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
-        #                                                                      spike_templates,
-        #                                                                      total_units,
-        #                                                                      pc_features,
-        #                                                                      pc_feature_ind,
-        #                                                                      num_channels_to_compare,
-        #                                                                      max_spikes_for_unit,
-        #                                                                      max_spikes_for_nn,
-        #                                                                      n_neighbors,
-        #                                                                      do_parallel=do_parallel)
+        except Exception:
+            # Fallback
+            print("Falling back to old Allen algo")
+            (isolation_distance, l_ratio,
+             d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
+                                                                             spike_templates,
+                                                                             total_units,
+                                                                             pc_features,
+                                                                             pc_feature_ind,
+                                                                             num_channels_to_compare,
+                                                                             max_spikes_for_unit,
+                                                                             max_spikes_for_nn,
+                                                                             n_neighbors,
+                                                                             do_parallel=do_parallel)
 
         metrics0 = pd.DataFrame(data=OrderedDict((('isolation_distance', isolation_distance),
                                                   ('l_ratio', l_ratio),
@@ -1739,10 +1740,10 @@ if __name__ == '__main__':
         main()
     except SystemExit:
         pass
-    except Exception as e:
-        print('Error. Trying to start debugger... :\n ', e)
-        import sys, traceback, pdb
-
-        extype, value, tb = sys.exc_info()
-        traceback.print_exc()
-        pdb.post_mortem(tb)
+    # except Exception as e:
+    #     print('Error. Trying to start debugger... :\n ', e)
+    #     import sys, traceback, pdb
+    #
+    #     extype, value, tb = sys.exc_info()
+    #     traceback.print_exc()
+    #     pdb.post_mortem(tb)
