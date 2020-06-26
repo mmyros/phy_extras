@@ -1550,11 +1550,11 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                       do_parallel=True, do_pc_features=True, do_silhouette=True, do_drift=True,
                       isi_threshold=0.0015,
                       min_isi=0.000166,
-                      num_channels_to_compare=16,
+                      num_channels_to_compare=5,
                       max_spikes_for_unit=1500,
-                      max_spikes_for_nn=50000,
+                      max_spikes_for_nn=20000,
                       n_neighbors=4,
-                      n_silhouette=50000,
+                      n_silhouette=20000,
                       drift_metrics_interval_s=51,
                       drift_metrics_min_spikes_per_interval=10
                       ):
@@ -1620,8 +1620,8 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                              ('amplitude_cutoff', amplitude_cutoff),)))
     if do_pc_features:
         print("Calculating PC-based metrics")
-        try:
-            (isolation_distance, l_ratio,
+        # try:
+        (isolation_distance, l_ratio,
             d_prime, nn_hit_rate, nn_miss_rate) = NewWrappers.calculate_pc_metrics(spike_clusters,
                                                                              spike_templates,
                                                                              total_units,
@@ -1632,19 +1632,19 @@ def calculate_metrics(spike_times, spike_clusters, spike_templates, amplitudes, 
                                                                              max_spikes_for_nn,
                                                                              n_neighbors,
                                                                              do_parallel=do_parallel)
-        except Exception:
-            # Fallback
-            (isolation_distance, l_ratio,
-             d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
-                                                                             spike_templates,
-                                                                             total_units,
-                                                                             pc_features,
-                                                                             pc_feature_ind,
-                                                                             num_channels_to_compare,
-                                                                             max_spikes_for_unit,
-                                                                             max_spikes_for_nn,
-                                                                             n_neighbors,
-                                                                             do_parallel=do_parallel)
+        # except Exception:
+        #     # Fallback
+        #     (isolation_distance, l_ratio,
+        #      d_prime, nn_hit_rate, nn_miss_rate) = Wrappers.calculate_pc_metrics(spike_clusters,
+        #                                                                      spike_templates,
+        #                                                                      total_units,
+        #                                                                      pc_features,
+        #                                                                      pc_feature_ind,
+        #                                                                      num_channels_to_compare,
+        #                                                                      max_spikes_for_unit,
+        #                                                                      max_spikes_for_nn,
+        #                                                                      n_neighbors,
+        #                                                                      do_parallel=do_parallel)
 
         metrics0 = pd.DataFrame(data=OrderedDict((('isolation_distance', isolation_distance),
                                                   ('l_ratio', l_ratio),
@@ -1711,16 +1711,18 @@ def main(kilosort_folder=None, do_parallel=True, do_pc_features=True, do_silhoue
                                                                   fs,
                                                                   False,
                                                                   include_pcs=do_include_pcs)
+
     (the_spike_times, the_spike_clusters, the_spike_templates,
      the_amplitudes, the_pc_features,
      the_overlap_matrix) = KsortPostprocessing.remove_double_counted_spikes(the_spike_times,
-                                                                            the_spike_clusters,
-                                                                            the_spike_templates,
-                                                                            the_amplitudes,
-                                                                            the_channel_map,
-                                                                            the_templates,
-                                                                            the_pc_features,
-                                                                            sample_rate=fs)
+                                                                        the_spike_clusters,
+                                                                        the_spike_templates,
+                                                                        the_amplitudes,
+                                                                        the_channel_map,
+                                                                        the_templates,
+                                                                        the_pc_features,
+                                                                        sample_rate=fs)
+
 
     all_metrics = calculate_metrics(the_spike_times, the_spike_clusters, the_spike_templates,
                                     the_amplitudes, the_pc_features, the_pc_feature_ind,
