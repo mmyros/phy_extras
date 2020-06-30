@@ -1,28 +1,19 @@
 # phy_extras
 A collection of phy enhancements building on Allen Institute's spikesorting metrics among others
 # Installation
-#### Install development versions of phy and phylib if you haven't yet:
-(these may change in the future)
+1) Install development versions of phy and phylib if you haven't yet:
 ```bash
-# Dependencies for phy and phylib:
-conda install -y numpy matplotlib scipy h5py dask cython pillow colorcet pyopengl requests qtconsole tqdm joblib click toolz
-# Development versions of phylib and phy in that order:
-pip install git+https://github.com/cortex-lab/phylib.git
-pip install git+https://github.com/cortex-lab/phy.git
-```
-#### Dependencies for phy_extras:
-```
-conda install -y scikit-learn
+# Conda install dependencies 
+conda install -y numpy matplotlib scipy h5py dask cython pillow colorcet pyopengl requests qtconsole tqdm joblib click toolz scikit-learn
 pip install git+https://github.com/mmyros/ssm.git
-# May be able to use pip install git+https://github.com/slinderman/ssm.git 
 ```
-Finally, do one of the two things: 
+2) do one of the two things: 
 - Copy `dotphy` directory to your home directory and rename it `.phy` 
 - OR, on Mac or Linux, make a symbolic link: `ln -s ~/phy_extras/dotphy/  ~/.phy` 
 (assuming you downloaded this repository to your home directory)
 
 # Usage
-Next time you run phy like usual, new columns should show up in cluster metrics. 
+Next time phy is launched, new columns should show up in cluster metrics. 
 Also, the following keyboard shortcuts should work:
 
 1. `Alt+R` to cycle through raw data and waveform views: 

@@ -19,11 +19,12 @@ class ClusterMetricsPluginBatch(IPlugin):
         # unpickle problems due to QT in phy. so cant use joblib for parallel
         # Uncomment this if you want to recompute every time phy loads (or remove quality_metrics.csv)
         # os.system('python ~/.phy/plugins/spike_io.py --do_drift=0')
+        os.system('cluster_quality --do_drift=0')
         try:
             df = pd.read_csv(os.path.join(controller.dir_path, 'quality_metrics.csv'))
         except FileNotFoundError:
             # Force recalculation if spike measures do not exist
-            os.system('python ~/.phy/plugins/spike_io.py --do_drift=0')
+            os.system('cluster_quality --do_drift=0')
             df = pd.read_csv(os.path.join(controller.dir_path, 'quality_metrics.csv'))
 
         # run spike_io.main (thorough os.system if you must), save, and load

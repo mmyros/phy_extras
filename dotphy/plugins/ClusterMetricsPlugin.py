@@ -1,14 +1,15 @@
 """Show how to add a custom cluster metrics."""
-from pdb import set_trace
 import numpy as np
 from phy import IPlugin
+
+import cluster_quality.quality_metrics
+
 try:
     import spike_io
 except Exception as e:
     print(e)
     print('Cant find spike_io to calculate cluster_metrics! Trying again..')
-    from . import spike_io
-import os
+    from cluster_quality import spike_io
 
 
 class ClusterMetricsPlugin(IPlugin):
@@ -49,14 +50,14 @@ class ClusterMetricsPlugin(IPlugin):
 
         def presence_ratio(cluster_id):
             spike_train, spike_clusters = get_data(cluster_id)
-            return spike_io.QualityMetrics.presence_ratio(spike_train, np.min(spike_train), np.max(spike_train), )
+            return cluster_quality.quality_metrics.QualityMetrics.presence_ratio(spike_train, np.min(spike_train), np.max(spike_train), )
 
         def isi_viol(cluster_id):
             spike_train, spike_clusters = get_data(cluster_id)
             # TODO minmax should really be on all spiketimes
-            return spike_io.QualityMetrics.isi_violations(spike_train, np.min(spike_train), np.max(spike_train),
-                                                          isi_threshold,
-                                                          min_isi)[0]
+            return cluster_quality.quality_metrics.QualityMetrics.isi_violations(spike_train, np.min(spike_train), np.max(spike_train),
+                                                                                 isi_threshold,
+                                                                                 min_isi)[0]
 
         controller.cluster_metrics['isiviol'] = controller.context.memcache(isi_viol)
         controller.cluster_metrics['pres'] = controller.context.memcache(presence_ratio)
