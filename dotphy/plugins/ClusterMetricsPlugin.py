@@ -4,13 +4,6 @@ from phy import IPlugin
 
 import cluster_quality.quality_metrics
 
-try:
-    from cluster_quality import spike_io
-except Exception as e:
-    print(e)
-    print('Cant find spike_io to calculate cluster_metrics! Trying again..')
-    from cluster_quality import spike_io
-
 
 class ClusterMetricsPlugin(IPlugin):
     def attach_to_controller(self, controller):
