@@ -1,4 +1,3 @@
-
 # You can also put your plugins in ~/.phy/plugins/.
 
 from phy import IPlugin
@@ -15,5 +14,7 @@ from phy.cluster.views import HistogramView
 c = get_config()
 c.Plugins.dirs = [r'/home/m/.phy/plugins']
 # list of plugin names to load in the TemplateGUIExampleClusterStatsPlugin:
-c.TemplateGUI.plugins = ['RawDataFilterPluginMeanAndHighpass','ClusterMetricsPlugin',
-                         'ClusterMetricsPluginBatch','ExampleCustomSplitPlugin']
+c.TemplateGUI.plugins = ['RawDataFilterPluginMeanAndHighpass',
+                         # 'ClusterMetricsPlugin',
+                         # 'ClusterMetricsPluginBatch',
+                         'ExampleCustomSplitPlugin']
