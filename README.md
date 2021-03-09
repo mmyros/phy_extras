@@ -1,5 +1,12 @@
 # phy_extras
 A collection of phy enhancements building on Allen Institute's spikesorting metrics among others
+# Features
+1) Trace view filtering and referencing
+![trace](videos/trace_toggle.gif)
+
+2) Auto-split via K-means, GAC, or time 
+![split](videos/gac_split.gif)
+
 # Installation
 1) Install development versions of phy and phylib if you haven't yet:
 ```bash
