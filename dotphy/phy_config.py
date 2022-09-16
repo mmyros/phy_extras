@@ -10,9 +10,10 @@ from phy import IPlugin
 #         pass
 from phy import IPlugin, Bunch
 from phy.cluster.views import HistogramView
+from pathlib import Path
 
 c = get_config()
-c.Plugins.dirs = [r'/home/m/.phy/plugins']
+c.Plugins.dirs = [Path('~/.phy/plugins').expanduser()]
 # list of plugin names to load in the TemplateGUIExampleClusterStatsPlugin:
 c.TemplateGUI.plugins = ['RawDataFilterPluginMeanAndHighpass',
                          # 'ClusterMetricsPlugin',
